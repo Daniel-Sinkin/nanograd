@@ -98,3 +98,15 @@ class CGNodeBinary(CGNode):
                     self.child_left.eval_() * self.child_right.grad()
                     + self.child_left.grad() * self.child_right.eval_()
                 )
+
+
+if __name__ == "__main__":
+    _n1 = CGNodeLeaf(0.7)
+    _n2 = CGNodeUnary(UnaryOperator.INV, _n1)
+    _n3 = CGNodeBinary(BinaryOperator.ADD, _n1, _n2)
+    _n4 = CGNodeBinary(BinaryOperator.MUL, _n1, _n2)
+
+    assert _n1.eval_() == 0.7
+    assert _n2.eval_() == 1 / 0.7
+    assert _n3.eval_() == 0.7 + 1 / 0.7
+    assert _n4.eval_() == 0.7 * 1 / 0.7
