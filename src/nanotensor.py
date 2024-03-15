@@ -6,8 +6,8 @@ import networkx as nx
 import numpy as np
 import torch
 
-from .autograd_constants import Operator
-from .autograd_util import format_label
+from .nanotensor_constants import Operator
+from .nanotensor_util import format_label
 
 
 class NanoTensor:

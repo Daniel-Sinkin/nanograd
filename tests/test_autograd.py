@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 
-from src.autograd import NanoTensor
+from src.nanotensor import NanoTensor
 
 
 def test_autograd_add() -> None:

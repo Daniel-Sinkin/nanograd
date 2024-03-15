@@ -1,5 +1,7 @@
 """
 Implements the computational graph node classes.
+
+This is deprecated and not used in the final implementation of the `nanograd` package.
 """
 
 from abc import ABC, abstractmethod

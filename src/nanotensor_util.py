@@ -1,4 +1,4 @@
-from .autograd_constants import UNICODE_NABLA, Operator
+from .nanotensor_constants import UNICODE_NABLA, Operator
 
 
 def format_label(node) -> str:

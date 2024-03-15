@@ -1,7 +1,7 @@
 """Main file for the NanoGrad package."""
 
-from src.autograd import NanoTensor
-from src.autolabel_tensors import auto_label
+from src.nanotensor import NanoTensor
+from src.nanotensor_autolabel import auto_label
 
 
 def main():
