@@ -46,21 +46,8 @@ def computing_chain_rule_direct() -> None:
 def computing_chain_rule_for_product() -> None:
     x = torch.tensor([0.7], requires_grad=True)
     y = torch.tensor([0.5], requires_grad=True)
-
     c = torch.cos(x + y)
     s = torch.sin(x - y)
     z = c * s
     z.backward()
     print(x.grad, y.grad)
-
-
-# h(x) = f(g(x))
-# h'(x) = f'(g(x)) * g'(x)
-
-# MUL(x, y) = x * y
-# dMUL/dx = y
-# dMUL/dy = x
-
-# h(x, y) = MUL(f(x, y), g(x, y))
-# dh/dx = dMUL/dx * df/dx + dMUL/dy * dg/dx
-# dh/dy = dMUL/dx * df/dy + dMUL/dy * dg/dy
