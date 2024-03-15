@@ -143,6 +143,19 @@ def test_autograd_pow_int_zero_exponent() -> None:
     assert np.isclose(x.grad, x_t.grad.item())
 
 
+def test_autograd_tanh() -> None:
+    x = NanoTensor(0.5)
+    y: NanoTensor = x.tanh()
+    y.backward()
+
+    x_t: torch.Tensor = x.to_torch()
+    y_t: torch.Tensor = x_t.tanh()
+    y_t.backward()
+
+    assert np.isclose(y.value, y_t.item())
+    assert np.isclose(x.grad, x_t.grad.item())
+
+
 def test_autograd_edge_cases() -> None:
     x = NanoTensor(3.0)
     y: NanoTensor = x + x

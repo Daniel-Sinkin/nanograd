@@ -1,7 +1,5 @@
 """Contains all the tests for the ComputationalGraph."""
 
-import torch
-
 from src.cgnode import (
     BinaryOperator,
     CGNodeBinary,
