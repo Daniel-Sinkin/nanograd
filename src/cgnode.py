@@ -1,5 +1,5 @@
 """
-Holds the computational graph node classes.
+Implements the computational graph node classes.
 """
 
 from abc import ABC, abstractmethod
@@ -17,7 +17,7 @@ class BinaryOperator(Enum):
 
 
 class CGNode(ABC):
-    """A computational graph node that supports autograd."""
+    """Base class for the Computation Graph"""
 
     @abstractmethod
     def eval_(self) -> float: ...
