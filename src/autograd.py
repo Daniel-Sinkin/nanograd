@@ -6,15 +6,8 @@ import networkx as nx
 import numpy as np
 import torch
 
-
-class Operator(Enum):
-    NOT_INITIALIZED = ""
-    ADD = "+"
-    MUL = "*"
-    SIN = "sin"
-    COS = "cos"
-    EXP = "exp"
-    POW = "pow"
+from .autograd_constants import Operator
+from .autograd_util import format_label
 
 
 class NanoTensor:
@@ -23,18 +16,23 @@ class NanoTensor:
     COUNTER = 0  # Gives every NanoTensor a unique id, does not get decremented if objects get deleted
 
     def __init__(
-        self, value, children: tuple["NanoTensor"] = None, operator: Operator = None
+        self,
+        value,
+        children: tuple["NanoTensor"] = None,
+        operator: Operator = None,
+        label: str = None,
     ):
         self.value = value
         self.grad: float = 0.0
         self._children: tuple["NanoTensor"] = children or ()
         self._operator: Operator = operator or Operator.NOT_INITIALIZED
         self._backward: Optional[Callable] = lambda: None
-        self.label = str(NanoTensor.COUNTER)
+
+        self.label: str = label or str(NanoTensor.COUNTER)
         NanoTensor.COUNTER += 1
 
     def __repr__(self):
-        return f"NanoTensor({self.value})"
+        return f"NanoTensor({self.value},{self.label})"
 
     def __add__(self, other) -> "NanoTensor":
         if not isinstance(other, NanoTensor):
@@ -43,6 +41,7 @@ class NanoTensor:
             self.value + other.value, children=(self, other), operator=Operator.ADD
         )
 
+        # d/dx +(x, y) = 1, d/dy +(x, y) = 1
         def _backward() -> None:
             self.grad += 1.0 * result_tensor.grad
             other.grad += 1.0 * result_tensor.grad
@@ -57,6 +56,7 @@ class NanoTensor:
             self.value * other.value, children=(self, other), operator=Operator.MUL
         )
 
+        # d/dx *(x, y) = y, d/dy *(x, y) = x
         def _backward() -> None:
             self.grad += other.value * result_tensor.grad
             other.grad += self.value * result_tensor.grad
@@ -69,6 +69,7 @@ class NanoTensor:
             np.sin(self.value), children=(self,), operator=Operator.SIN
         )
 
+        # d/dx sin(x) = cos(x)
         def _backward() -> None:
             self.grad += np.cos(self.value) * result_tensor.grad
 
@@ -80,6 +81,7 @@ class NanoTensor:
             np.cos(self.value), children=(self,), operator=Operator.COS
         )
 
+        # d/dx cos(x) = -sin(x)
         def _backward() -> None:
             self.grad -= np.sin(self.value) * result_tensor.grad
 
@@ -91,6 +93,7 @@ class NanoTensor:
             np.exp(self.value), children=(self,), operator=Operator.EXP
         )
 
+        # d/dx exp(x) = exp(x)
         def _backward() -> None:
             self.grad += np.exp(self.value) * result_tensor.grad
 
@@ -104,6 +107,7 @@ class NanoTensor:
             self.value**power.value, children=(self, power), operator=Operator.POW
         )
 
+        # d/dx x^y = y * x^(y-1), d/dy x^y = x^y * ln(x)
         def _backward() -> None:
             self.grad += (
                 power.value * self.value ** (power.value - 1)
@@ -116,7 +120,7 @@ class NanoTensor:
         return result_tensor
 
     def backward(self):
-        # Create a directed graph
+        """Backpropagate gradients through the computational graph."""
         graph = nx.DiGraph()
 
         # Add nodes to the graph
@@ -153,24 +157,6 @@ class NanoTensor:
         traverse(self)
         return nodes
 
-    """
-    def backward(self):
-        topo: list["NanoTensor"] = []
-        visited: set["NanoTensor"] = set()
-
-        def build_topo(node: NanoTensor):
-            if node not in visited:
-                visited.add(node)
-                for child in node._children:
-                    build_topo(child)
-                topo.append(node)
-
-        build_topo(self)
-        self.grad = 1.0
-        for v in reversed(topo):
-            v._backward()
-    """
-
     def zero_grad(self) -> None:
         """Zeroes the gradient of the NanoTensor"""
         self.grad = 0.0
@@ -185,28 +171,64 @@ class NanoTensor:
         return NanoTensor(tensor.item())
 
     def visualize_graph(self):
-        # Create a directed graph
+        """
+        Displays a visualization of the computational graph.
+
+        Potential Improvements:
+            - Make the nodes first point into a "synthetic" red node that only
+              contains the operator which then points into the value and grad.
+            - Sort the nodes within a given layer, for example so that a < b < c
+              gets preserved.
+            - Clean the graph up, making labels, adding more information, give
+              some dashboard type of information on the side.
+            - Allow interactive steppíng through the backpropagation.
+        """
         graph = nx.DiGraph()
-
-        # Add nodes to the graph
         for node in self.get_all_nodes():
-            graph.add_node(node, label=str(node))
-
-        # Add edges to the graph
+            graph.add_node(node, label=format_label(node))
         for node in self.get_all_nodes():
             for child in node._children:
                 graph.add_edge(child, node)
 
-        # Draw the graph
-        pos = nx.spring_layout(graph)
+        # Initialize layer information
+        layers: dict["NanoTensor", int] = {node: 0 for node in graph.nodes()}
+
+        # Update layers based on topological sorting
+        for node in nx.topological_sort(graph):
+            preds = list(graph.predecessors(node))
+            if preds:  # If there are predecessors
+                layers[node] = max(layers[pred] + 1 for pred in preds)
+
+        # Organize nodes by layers to calculate positions
+        layer_counts = {}
+        for layer in layers.values():
+            if layer not in layer_counts:
+                layer_counts[layer] = 0
+            layer_counts[layer] += 1
+
+        # Assign positions based on layers
+        pos = {}
+        layer_positions = {
+            layer: 0 for layer in layer_counts
+        }  # Tracks position within each layer
+        for node, layer in sorted(layers.items(), key=lambda x: x[1]):  # Sort by layer
+            width = layer_counts[layer]
+            pos[node] = (
+                layer_positions[layer] - width / 2 + 0.5,
+                -layer,
+            )  # Center align within layer
+            layer_positions[layer] += 1
+
+        nx.draw(graph, pos, node_color="black", node_size=2250, edgelist=[])
         nx.draw(
             graph,
             pos,
+            labels=nx.get_node_attributes(graph, "label"),
             with_labels=True,
             node_color="skyblue",
             edge_color="gray",
             font_size=8,
-            node_size=1000,
+            node_size=2000,
         )
         plt.axis("off")
         plt.show()
