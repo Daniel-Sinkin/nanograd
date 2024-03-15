@@ -22,7 +22,7 @@ class NanoTensor:
         operator: Operator = None,
         label: str = None,
     ):
-        self.value = value
+        self.value = float(value)
         self.grad: float = 0.0
         self._children: tuple["NanoTensor"] = children or ()
         self._operator: Operator = operator or Operator.NOT_INITIALIZED
@@ -66,36 +66,48 @@ class NanoTensor:
 
     def sin(self) -> "NanoTensor":
         result_tensor = NanoTensor(
-            np.sin(self.value), children=(self,), operator=Operator.SIN
+            float(np.sin(self.value)), children=(self,), operator=Operator.SIN
         )
 
         # d/dx sin(x) = cos(x)
         def _backward() -> None:
-            self.grad += np.cos(self.value) * result_tensor.grad
+            self.grad += float(np.cos(self.value)) * result_tensor.grad
 
         result_tensor._backward = _backward
         return result_tensor
 
     def cos(self) -> "NanoTensor":
         result_tensor = NanoTensor(
-            np.cos(self.value), children=(self,), operator=Operator.COS
+            float(np.cos(self.value)), children=(self,), operator=Operator.COS
         )
 
         # d/dx cos(x) = -sin(x)
         def _backward() -> None:
-            self.grad -= np.sin(self.value) * result_tensor.grad
+            self.grad -= float(np.sin(self.value)) * result_tensor.grad
+
+        result_tensor._backward = _backward
+        return result_tensor
+
+    def tanh(self) -> "NanoTensor":
+        result_tensor = NanoTensor(
+            float(np.tanh(self.value)), children=(self,), operator=Operator.TANH
+        )
+
+        # d/dx tanh(x) = 1 - tanh(x)^2
+        def _backward() -> None:
+            self.grad += (1 - result_tensor.value**2) * result_tensor.grad
 
         result_tensor._backward = _backward
         return result_tensor
 
     def exp(self) -> "NanoTensor":
         result_tensor = NanoTensor(
-            np.exp(self.value), children=(self,), operator=Operator.EXP
+            float(np.exp(self.value)), children=(self,), operator=Operator.EXP
         )
 
         # d/dx exp(x) = exp(x)
         def _backward() -> None:
-            self.grad += np.exp(self.value) * result_tensor.grad
+            self.grad += float(np.exp(self.value)) * result_tensor.grad
 
         result_tensor._backward = _backward
         return result_tensor
@@ -113,7 +125,7 @@ class NanoTensor:
                 power.value * self.value ** (power.value - 1)
             ) * result_tensor.grad
             power.grad += (
-                self.value**power.value * np.log(self.value)
+                self.value**power.value * float(np.log(self.value))
             ) * result_tensor.grad
 
         result_tensor._backward = _backward

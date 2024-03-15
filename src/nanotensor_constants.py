@@ -11,3 +11,4 @@ class Operator(Enum):
     COS = "cos"
     EXP = "exp"
     POW = "pow"
+    TANH = "tanh"
