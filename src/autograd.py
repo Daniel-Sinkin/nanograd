@@ -170,18 +170,21 @@ class NanoTensor:
         """Creates a NanoTensor from a torch tensor."""
         return NanoTensor(tensor.item())
 
-    def visualize_graph(self):
+    def visualize_graph(self, filepath: str = None):
         """
         Displays a visualization of the computational graph.
+
+        Add a filepath if you want to save the figure, leave as None to only display it.
 
         Potential Improvements:
             - Make the nodes first point into a "synthetic" red node that only
               contains the operator which then points into the value and grad.
             - Sort the nodes within a given layer, for example so that a < b < c
-              gets preserved.
+              gets preserved. In particular this would make the graph be stable
+              to calling backpropagation on an intermediate node, which would
+              allow for a more interactive visualization.
             - Clean the graph up, making labels, adding more information, give
               some dashboard type of information on the side.
-            - Allow interactive steppíng through the backpropagation.
         """
         graph = nx.DiGraph()
         for node in self.get_all_nodes():
@@ -231,4 +234,6 @@ class NanoTensor:
             node_size=2000,
         )
         plt.axis("off")
+        if filepath is not None:
+            plt.savefig(filepath)
         plt.show()
