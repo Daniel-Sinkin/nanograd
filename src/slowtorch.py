@@ -25,6 +25,7 @@ class Neuron:
         return self.forward(x)
 
     def forward(self, x: NanoTensor) -> NanoTensor:
+        assert len(self.w) == len(x)
         return sum((w * x for w, x in zip(self.w, x)), self.b).tanh()
 
 
