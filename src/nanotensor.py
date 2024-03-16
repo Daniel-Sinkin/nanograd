@@ -124,6 +124,17 @@ class NanoTensor:
         result_tensor._backward = _backward
         return result_tensor
 
+    def relu(self) -> "NanoTensor":
+        result_tensor = NanoTensor(
+            value=max(0, self.value), children=(self,), operator=Operator.RELU
+        )
+
+        def _backward() -> None:
+            self.grad += (1.0 if self.value > 0 else 0.0) * result_tensor.grad
+
+        result_tensor._backward = _backward
+        return result_tensor
+
     def exp(self) -> "NanoTensor":
         result_tensor = NanoTensor(
             float(np.exp(self.value)), children=(self,), operator=Operator.EXP

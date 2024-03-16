@@ -13,3 +13,4 @@ class Operator(Enum):
     EXP = "exp"
     POW = "pow"
     TANH = "tanh"
+    RELU = "relu"

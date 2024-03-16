@@ -152,6 +152,40 @@ def test_autograd_tanh() -> None:
     assert np.isclose(x.grad, x_t.grad.item())
 
 
+def test_autograd_relu_positive() -> None:
+    x_pos = NanoTensor(1.0)
+    y_pos: NanoTensor = x_pos.relu()
+    y_pos.backward()
+
+    x_pos_t: torch.Tensor = x_pos.to_torch()
+    y_pos_t: torch.Tensor = torch.relu(x_pos_t)
+    y_pos_t.backward()
+
+    assert np.isclose(
+        y_pos.value, y_pos_t.item()
+    ), "ReLU forward pass failed for positive value."
+    assert np.isclose(
+        x_pos.grad, x_pos_t.grad.item()
+    ), "ReLU backward pass failed for positive value."
+
+
+def test_autograd_relu_negative() -> None:
+    x_neg = NanoTensor(-1.0)
+    y_neg: NanoTensor = x_neg.relu()
+    y_neg.backward()
+
+    x_neg_t: torch.Tensor = x_neg.to_torch()
+    y_neg_t: torch.Tensor = torch.relu(x_neg_t)
+    y_neg_t.backward()
+
+    assert np.isclose(
+        y_neg.value, y_neg_t.item()
+    ), "ReLU forward pass failed for negative value."
+    assert np.isclose(
+        x_neg.grad, x_neg_t.grad.item()
+    ), "ReLU backward pass failed for negative value."
+
+
 def test_autograd_edge_cases() -> None:
     x = NanoTensor(3.0)
     y: NanoTensor = x + x
