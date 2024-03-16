@@ -1,20 +1,11 @@
 # nanograd
-Nanograd is a custom backpropagation and neural net engine with syntax that is
-similiar to PyTorch written for learning purposes.
+Nanograd is a custom backpropagation and neural net engine with a similiar API to PyTorch written for learning purposes.
 
-The base object that takes the role of a Tensor is the NanoTenser which is a
-wrapper around a single number. It supports computation and backpropagation
-for most of the common mathematical operations (+, *, pow, exp, sin) and
-activation functions (tanh, ReLu, sigmoid(Note yet)).
+The base object that takes the role of a Tensor is the NanoTenser which is a wrapper around a single number. It supports computation and backpropagation for most of the common mathematical operations (+, *, pow, exp, sin) and activation functions (tanh, ReLu, sigmoid(Note yet)).
 
-A simple MLP (Multiple Layer Perceptron) class named SlowTorch is implemented,
-it allows easy initialization of arbitrary depth deep nets with random initial
-weights and automatically assigns non-linearity activation functions to every
-node that is not the final node.
+A simple MLP (Multiple Layer Perceptron) class named SlowTorch is implemented, it allows easy initialization of arbitrary depth deep nets with random initial weights and automatically assigns non-linearity activation functions to every node that is not the final node.
 
-Forward passes can be done simply by calling the training data as a function
-input to the MLP (i.e. by executing model(x)), and backpropagation 
-can be achieved by calling the `backward` function on any NanoTensor.
+Forward passes can be done simply by calling the training data as a function input to the MLP (i.e. by executing `model(x)` where `model` is an MPL), and backpropagation  can be achieved by calling the `backward` function on any NanoTensor.
 
 The gradients are then stored inside of the Tensor objects.
 
@@ -38,4 +29,4 @@ Computation graph and back propagation for a handful of chained operations in `m
 ![Image](/images/computation_graph_total.png)
 
 ## Acknowledgements
-Inspired by [micrograd](https://github.com/karpathy/micrograd).
+This project is mainly inspired by [micrograd](https://github.com/karpathy/micrograd) and Karpathy's great lecture series: `Neural Nets: From Zero to Hero`.
