@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -289,3 +289,14 @@ class NanoTensor:
         if filepath is not None:
             plt.savefig(filepath)
         plt.show()
+
+    # This could be changed to a generic tensor -> nanotensor method that handles
+    # nesting properly, but as we don't really support non-scalar Tensor primitives
+    # this wouldn't really be that helpful.
+    @staticmethod
+    def from_list(lst: list) -> list["NanoTensor"]:
+        return [NanoTensor(x) for x in lst]
+
+    @staticmethod
+    def from_nested_list(lst: list[list]) -> list[list["NanoTensor"]]:
+        return [NanoTensor.from_list(sublst) for sublst in lst]
