@@ -3,8 +3,12 @@
 * Neurons, Layers, MLP support, automatic instantiation with random intial weights
 * Simple visualizations for the results and the loss are availiable
 
-Low dimensional binary classification NN training run with visualization of predictions and loss found inside of `main_slowtorch.py`. 
-![Image](/images/nn_val_and_loss.png)
+Binary Classification training results on the make_moons scipy training set
+![Image](/images/make_moons_dataset.png)
+![Image](/images/make_moons_results.png)
+
+Low dimensional binary classification training results with visualization of predictions and loss found inside of `main_slowtorch.py`. 
+![Image](/images/slowtorch_binary_classification.png)
 
 ## NanoTensor
 * Autograd computation through Backpropagation

@@ -2,6 +2,7 @@
 This is a modified variant of the micrograd demo from the original micrograd repository.
 """
 
+import os
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
@@ -28,21 +29,23 @@ class SETTINGS:
 np.random.seed(SETTINGS.SEED)
 
 
-def get_dataset() -> tuple[np.ndarray, np.ndarray]:
+def get_dataset(random_state=None) -> tuple[np.ndarray, np.ndarray]:
     """Pulls the dataset with the same settings as in micrograd."""
-    return make_moons(n_samples=100, noise=0.1)
+    return make_moons(n_samples=100, noise=0.1, random_state=random_state)
 
 
-def get_dataset_processed() -> tuple[list[NanoTensor], list[NanoTensor]]:
+def get_dataset_processed(
+    random_state=None,
+) -> tuple[list[NanoTensor], list[NanoTensor]]:
     """Maps 0 -> -1, 1 -> 1."""
-    X, y = get_dataset()
+    X, y = get_dataset(random_state)
     y = y * 2 - 1
     X = [[NanoTensor(_x[0]), NanoTensor(_x[1])] for _x in X]
     y = list(map(NanoTensor, y))
     return X, y
 
 
-def plot_dataset() -> None:
+def plot_dataset(show_plot=False, plot_fp: str = None) -> None:
     X, y = get_dataset()
     y = y * 2 - 1
 
@@ -54,7 +57,10 @@ def plot_dataset() -> None:
         s=SETTINGS.PLOT.MARKER_SIZE,
         cmap=SETTINGS.PLOT.CMAP,
     )
-    plt.show()
+    if plot_fp:
+        plt.savefig(plot_fp)
+    if show_plot:
+        plt.show()
 
 
 def loss(
@@ -87,10 +93,13 @@ def loss(
     return total_loss, sum(accuracy) / len(accuracy)
 
 
-def training_iteration(model: MLP, X, y, learning_rate: float, batch_size=None) -> None:
+def training_iteration(
+    model: MLP, X, y, learning_rate: float, batch_size=None, print_training_steps=False
+) -> None:
     # Foward
     total_loss, acc = loss(model, X, y, batch_size)
-    print(total_loss.value, acc)
+    if print_training_steps:
+        print(total_loss.value, acc)
 
     # Backward
     model.zero_grad()
@@ -101,14 +110,17 @@ def training_iteration(model: MLP, X, y, learning_rate: float, batch_size=None) 
         p.value -= learning_rate * p.grad
 
 
-def train(model, X, y, epochs: int, batch_size=None):
+def train(model, X, y, epochs: int, batch_size=None, print_training_steps=False):
     for epoch in range(epochs):
-        print(f"Training epoch {epoch + 1}/{epochs}")
+        if print_training_steps:
+            print(f"Training epoch {epoch + 1}/{epochs}")
         learning_rate: float = 1.0 - 0.9 * epoch / 100
-        training_iteration(model, X, y, learning_rate, batch_size)
+        training_iteration(model, X, y, learning_rate, batch_size, print_training_steps)
 
 
-def visualize_training_results(model) -> None:
+def visualize_training_results(
+    model, show_plot=True, plot_filepath: str = None
+) -> None:
     # visualize decision boundary
     h = 0.25
 
@@ -128,14 +140,39 @@ def visualize_training_results(model) -> None:
     plt.scatter(X[:, 0], X[:, 1], c=y, s=40, cmap=plt.cm.Spectral)
     plt.xlim(xx.min(), xx.max())
     plt.ylim(yy.min(), yy.max())
-    plt.show()
+    if plot_filepath:
+        plt.savefig(plot_filepath)
+
+    if show_plot:
+        plt.show()
+
+
+def main(
+    show_dataset=False,
+    dataset_fp: str = None,
+    show_results=True,
+    results_fp: str = None,
+    print_training_steps=False,
+    random_state=None,
+):
+    plot_dataset(show_dataset, dataset_fp)
+    _model = MLP(2, [16, 16, 1])
+
+    train(
+        _model,
+        *get_dataset_processed(random_state=random_state),
+        epochs=100,
+        print_training_steps=True,
+    )
+    visualize_training_results(_model, show_results, results_fp)
 
 
 if __name__ == "__main__":
-    # plot_dataset()
-    _model = MLP(2, [16, 16, 1])
-    print(len(_model.parameters))
-    print(_model._layers[0]._neurons[0].w)
-
-    train(_model, *get_dataset_processed(), epochs=100)
-    visualize_training_results(_model)
+    main(
+        show_dataset=True,
+        dataset_fp=os.path.join("images", "make_moons_dataset.png"),
+        show_results=True,
+        results_fp=os.path.join("images", "make_moons_results.png"),
+        print_training_steps=True,
+        random_state=78,
+    )
