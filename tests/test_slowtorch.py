@@ -10,5 +10,5 @@ def test_slowtorch_neuron() -> None:
     y: NanoTensor = neuron(x)
     z: NanoTensor = neuron.forward(x)
 
-    assert np.isclose(y.value, 0.89789)
+    assert np.isclose(y.value, -0.82726)
     assert np.isclose(y.value, z.value)

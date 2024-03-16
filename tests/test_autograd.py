@@ -96,23 +96,19 @@ def test_autograd_exp() -> None:
 
 def test_autograd_pow() -> None:
     x = NanoTensor(2.0)
-    y = NanoTensor(3.0)
+    y = 3.0
     z: NanoTensor = x**y
     z.backward()
 
     x_t: torch.Tensor = x.to_torch()
-    y_t: torch.Tensor = y.to_torch()
-    z_t: torch.Tensor = x_t**y_t
+    z_t: torch.Tensor = x_t**3.0
     z_t.backward()
 
     assert np.isclose(z.value, z_t.item())
     assert np.isclose(x.grad, x_t.grad.item())
-    assert np.isclose(y.grad, y_t.grad.item())
 
     x.zero_grad()
-    y.zero_grad()
     x_t.grad.zero_()
-    y_t.grad.zero_()
 
 
 def test_autograd_pow_int_normal() -> None:

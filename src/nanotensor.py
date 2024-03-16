@@ -32,7 +32,7 @@ class NanoTensor:
         NanoTensor.COUNTER += 1
 
     def __repr__(self):
-        return f"NanoTensor({self.value},{self.label})"
+        return f"NanoTensor({self.value},{self.grad}])"
 
     def __add__(self, other) -> "NanoTensor":
         if not isinstance(other, NanoTensor):
@@ -49,6 +49,27 @@ class NanoTensor:
         result_tensor._backward = _backward
         return result_tensor
 
+    def __radd__(self, other) -> "NanoTensor":
+        return self.__add__(other)
+
+    def __sub__(self, other) -> "NanoTensor":
+        if not isinstance(other, NanoTensor):
+            other = NanoTensor(other)
+        result_tensor = NanoTensor(
+            self.value - other.value, children=(self, other), operator=Operator.SUB
+        )
+
+        # d/dx -(x, y) = 1, d/dy -(x, y) = -1
+        def _backward() -> None:
+            self.grad += 1.0 * result_tensor.grad
+            other.grad -= 1.0 * result_tensor.grad
+
+        result_tensor._backward = _backward
+        return result_tensor
+
+    def __rsub__(self, other) -> "NanoTensor":
+        return (-1) * self.__sub__(other)
+
     def __mul__(self, other) -> "NanoTensor":
         if not isinstance(other, NanoTensor):
             other = NanoTensor(other)
@@ -63,6 +84,9 @@ class NanoTensor:
 
         result_tensor._backward = _backward
         return result_tensor
+
+    def __rmul__(self, other) -> "NanoTensor":
+        return self.__mul__(other)
 
     def sin(self) -> "NanoTensor":
         result_tensor = NanoTensor(
@@ -113,20 +137,15 @@ class NanoTensor:
         return result_tensor
 
     def __pow__(self, power) -> "NanoTensor":
-        if not isinstance(power, NanoTensor):
-            power = NanoTensor(power)
+        if not isinstance(power, int | float):
+            raise TypeError("Exponent must be an int or a float")
         result_tensor = NanoTensor(
-            self.value**power.value, children=(self, power), operator=Operator.POW
+            self.value**power, children=(self,), operator=Operator.POW
         )
 
         # d/dx x^y = y * x^(y-1), d/dy x^y = x^y * ln(x)
         def _backward() -> None:
-            self.grad += (
-                power.value * self.value ** (power.value - 1)
-            ) * result_tensor.grad
-            power.grad += (
-                self.value**power.value * float(np.log(self.value))
-            ) * result_tensor.grad
+            self.grad += (power * self.value ** (power - 1)) * result_tensor.grad
 
         result_tensor._backward = _backward
         return result_tensor
