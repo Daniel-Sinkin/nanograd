@@ -25,7 +25,7 @@ class Module(ABC):
     def parameters(self) -> list[NanoTensor]: ...
 
     def zero_grad(self):
-        for p in self.parameters():
+        for p in self.parameters:
             p.zero_grad()
 
 

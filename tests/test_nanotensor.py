@@ -107,9 +107,6 @@ def test_autograd_pow() -> None:
     assert np.isclose(z.value, z_t.item())
     assert np.isclose(x.grad, x_t.grad.item())
 
-    x.zero_grad()
-    x_t.grad.zero_()
-
 
 def test_autograd_pow_int_normal() -> None:
     x = NanoTensor(2.0)
