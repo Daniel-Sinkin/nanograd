@@ -137,5 +137,5 @@ if __name__ == "__main__":
     print(len(_model.parameters))
     print(_model._layers[0]._neurons[0].w)
 
-    # train(_model, *get_dataset_processed(), epochs=100)
-    # visualize_training_results(_model)
+    train(_model, *get_dataset_processed(), epochs=100)
+    visualize_training_results(_model)
