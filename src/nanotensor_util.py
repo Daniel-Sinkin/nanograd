@@ -1,7 +1,19 @@
+from typing import TYPE_CHECKING
+
 from .nanotensor_constants import UNICODE_NABLA, Operator
 
+if TYPE_CHECKING:
+    from .nanotensor import NanoTensor
 
-def format_label(node) -> str:
+
+# Whether I have to put NanoTensor into "..." depends on the python version
+# will just put them to be safe.
+def format_label(node: "NanoTensor") -> str:
+    """
+    Formats the label of the node for the graph visualization, this is pretty
+    messy code, but it's just for visualization purposes, so it's fine.
+    """
+
     # Base label part common to all nodes
     base_label = f"[{node.label}]\n{node.value:.2f}\n{UNICODE_NABLA}={node.grad:.2f}"
 

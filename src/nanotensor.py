@@ -2,6 +2,7 @@ from enum import Enum, auto
 from typing import Callable, Optional, Union
 
 import matplotlib.pyplot as plt
+import micrograd.engine
 import networkx as nx
 import numpy as np
 import torch
@@ -11,7 +12,20 @@ from .nanotensor_util import format_label
 
 
 class NanoTensor:
-    """A simple tensor type class that supports autograd. Functions as a ndarray wrapper."""
+    """
+    A simple tensor type class that supports autograd. Only supports scalar values.
+
+    It's called "Nano"Tensor because it's a wrapper around float (or float64)
+    instead of supporting general higher-dimension data layouts.
+
+    Implementing those might actually be feasible if we wrap numpy ndarrays instead
+    of doubles but then we'd also have to implement logic to reduce the jacobian
+    tensor that the gradient would end up being.
+
+    Also would have to rework how we handle the backpropagation logic itself, to
+    make a reduceable jacobian as the gradient instead of just a Tensor.
+    At that point it might be better to just write the whole library from scratch.
+    """
 
     COUNTER = 0  # Gives every NanoTensor a unique id, does not get decremented if objects get deleted
 
@@ -23,11 +37,17 @@ class NanoTensor:
         label: str = None,
     ):
         self.value = float(value)
-        self.grad: float = 0.0
+        self.grad: float = 0
         self._children: tuple["NanoTensor"] = children or ()
+
+        # Only for displaying the graphics
         self._operator: Operator = operator or Operator.NOT_INITIALIZED
+
+        # The backpropagation function, gets assigned at the forward propagation
+        # and then invoked by the backtracking.
         self._backward: Optional[Callable] = lambda: None
 
+        # Gives each tensor a unique enumeration label for displaying them.
         self.label: str = label or str(NanoTensor.COUNTER)
         NanoTensor.COUNTER += 1
 
@@ -35,6 +55,10 @@ class NanoTensor:
         return f"NanoTensor({self.value},{self.grad}])"
 
     def __add__(self, other) -> "NanoTensor":
+        """
+        We assume that we only add float or Tensor objects to Tensor
+        and so we are free to wrap the floats into a new Tensor.
+        """
         if not isinstance(other, NanoTensor):
             other = NanoTensor(other)
         result_tensor = NanoTensor(
@@ -98,6 +122,43 @@ class NanoTensor:
         result_tensor._backward = _backward
         return result_tensor
 
+    def __eq__(self, other):
+        if isinstance(other, NanoTensor):
+            return (self.value == other.value) and (self.grad == other.grad)
+
+        if isinstance(other, micrograd.engine.Value):
+            return np.isclose(self.value, other.data) and np.isclose(
+                self.grad, other.grad
+            )
+
+        return NotImplemented
+
+    # Have to implement it explicitly because __eq__ disables hashing
+    def __hash__(self):
+        return hash((self.value, self.label))
+
+    # In principle we could replace the (globally) analytical functions
+    # exp, sin, cos, tanh by a finite approximation via their power series expansion
+    # e^x = sum_k^N x^k / k!, sin(x) = sum_k^N ..., cos(x)^N = sum_k ...
+    # then we'd only need to implement the pow primitive.
+
+    def exp(self) -> "NanoTensor":
+        result_tensor = NanoTensor(
+            float(np.exp(self.value)), children=(self,), operator=Operator.EXP
+        )
+
+        # d/dx exp(x) = exp(x), after all it's the unique solution to y = y', y(0) = 1
+        def _backward() -> None:
+            self.grad += float(np.exp(self.value)) * result_tensor.grad
+
+        result_tensor._backward = _backward
+        return result_tensor
+
+    # If we'd support complex types we could build everything from the
+    # exponential function as a primitive because
+    # sin(x) = (e^ix - e^-ix) / 2i
+    # cos(x) = (e^ix + e^ix) / 2
+
     def sin(self) -> "NanoTensor":
         result_tensor = NanoTensor(
             float(np.sin(self.value)), children=(self,), operator=Operator.SIN
@@ -134,25 +195,27 @@ class NanoTensor:
         result_tensor._backward = _backward
         return result_tensor
 
+    # We could implement support for general piecewise funcitons by passing in
+    # a collection of function points and partitions into a higher order function,
+    # for example then we'd have relu = piecewise([_zero, _id])([0])
+    # and for x <= 0 then relu(x) = _zero(x) = 0
+    # and for x > 0  then relu(x) = _id(x) = x
+    # piecewise : List[Callable[float, float]] -> List[float] -> float
+    # That with the power series argument would reduce our set of primitives
+    # to only polynomials.
+
     def relu(self) -> "NanoTensor":
         result_tensor = NanoTensor(
-            value=max(0, self.value), children=(self,), operator=Operator.RELU
+            max(self.value, 0),
+            children=(self,),
+            operator=Operator.RELU,
         )
 
+        # d/dx relu(x) is a piecewise function that is 1.0 on (0, inf) and
+        # equal to 0 for (-inf, 0]. Note that it's not actually differentiable
+        # around 0, probably only a theoretical concern.
         def _backward() -> None:
             self.grad += (1.0 if self.value > 0 else 0.0) * result_tensor.grad
-
-        result_tensor._backward = _backward
-        return result_tensor
-
-    def exp(self) -> "NanoTensor":
-        result_tensor = NanoTensor(
-            float(np.exp(self.value)), children=(self,), operator=Operator.EXP
-        )
-
-        # d/dx exp(x) = exp(x)
-        def _backward() -> None:
-            self.grad += float(np.exp(self.value)) * result_tensor.grad
 
         result_tensor._backward = _backward
         return result_tensor
@@ -164,15 +227,39 @@ class NanoTensor:
             self.value**power, children=(self,), operator=Operator.POW
         )
 
-        # d/dx x^y = y * x^(y-1), d/dy x^y = x^y * ln(x)
+        # d/dx x^y = y * x^(y-1)
+        # For us x^y is not a binary map pow: R x R -> R but instead denotes
+        # a family of functions {pow(y) : y in R} for y in R where pow(y)(x) = x^y.
+        # As such we are not interested in d/dy x^y, but it would be the following:
+        # d/dy x^y = d/dy e^(ln(x) y) = ln(x) e^(ln(x) y) = ln(x)x^y
         def _backward() -> None:
             self.grad += (power * self.value ** (power - 1)) * result_tensor.grad
 
         result_tensor._backward = _backward
         return result_tensor
 
+    """
     def backward(self):
-        """Backpropagate gradients through the computational graph."""
+        # topological order all of the children in the graph
+        topo = []
+        visited = set()
+
+        def build_topo(v):
+            if v not in visited:
+                visited.add(v)
+                for child in v._children:
+                    build_topo(child)
+                topo.append(v)
+
+        build_topo(self)
+
+        # go one variable at a time and apply the chain rule to get its gradient
+        self.grad = 1
+        for v in reversed(topo):
+            v._backward()
+    """
+
+    def backward(self):
         graph = nx.DiGraph()
 
         # Add nodes to the graph
@@ -212,6 +299,13 @@ class NanoTensor:
     def zero_grad(self) -> None:
         """Zeroes the gradient of the NanoTensor"""
         self.grad = 0.0
+
+    # Could implement a general interface to allow for interoperability with
+    # different Tensor representations, maybe even just list pytorch tensors
+    # use NanoTensor <--> torch.Tensor <--> everything else
+
+    # NanoTensor ->  to_torch  -> torch.Tensor -> ...
+    # NanoTensor <- from_torch <- torch.Tensor <- ...
 
     def to_torch(self) -> torch.Tensor:
         """Creates a torch tensor from the NanoTensor. Does not retain gradient."""
@@ -274,7 +368,9 @@ class NanoTensor:
             )  # Center align within layer
             layer_positions[layer] += 1
 
+        # Draws outline around the nodes
         nx.draw(graph, pos, node_color="black", node_size=2250, edgelist=[])
+        # Draws the actual nodes
         nx.draw(
             graph,
             pos,
@@ -291,7 +387,7 @@ class NanoTensor:
         plt.show()
 
     # This could be changed to a generic tensor -> nanotensor method that handles
-    # nesting properly, but as we don't really support non-scalar Tensor primitives
+    # nesting properly, but as we don't support non-scalar Tensor primitives
     # this wouldn't really be that helpful.
     @staticmethod
     def from_list(lst: list) -> list["NanoTensor"]:

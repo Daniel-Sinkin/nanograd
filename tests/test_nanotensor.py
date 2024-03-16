@@ -1,5 +1,6 @@
 """Contains all the tests for the NanoTensor and in particular autograd functionality."""
 
+import micrograd.engine
 import numpy as np
 import torch
 
@@ -188,3 +189,10 @@ def test_autograd_edge_cases() -> None:
     y: NanoTensor = x + x
     y.backward()
     assert x.grad == 2.0
+
+
+def test_micrograd_interoperability() -> None:
+    x = NanoTensor(3.0)
+    x_mu = micrograd.engine.Value(3.0)
+
+    assert x == x_mu
