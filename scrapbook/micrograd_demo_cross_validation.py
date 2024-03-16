@@ -1,6 +1,11 @@
 """
 Test tests used to debug the nanograd functionality by comparing them
 to the micrograd functionality.
+
+This is too slow to be put into the general pytests and also requires a
+huge amount of coupling, breaking that does not mean that any of the
+functionality is broken, so I'm just keeping this file for future reference
+instead of moving it into the tests folder.
 """
 
 import random
