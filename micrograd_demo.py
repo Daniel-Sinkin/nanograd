@@ -57,10 +57,6 @@ def plot_dataset() -> None:
     plt.show()
 
 
-def get_mlp() -> MLP:
-    return MLP(2, [16, 16, 1])
-
-
 def loss(
     model: MLP, X: list[list[NanoTensor]], y: list[NanoTensor], batch_size=None
 ) -> tuple[float, float]:
@@ -68,7 +64,7 @@ def loss(
         Xb, yb = X, y
     else:
         raise NotImplementedError(
-            "Need to clean up the type handling before batchign implementation."
+            "Need to clean up the type handling before batching implementation."
         )
         ri = np.random.permutation(X.shape[0])[:batch_size]
         Xb, yb = X[ri], y[ri]
@@ -137,7 +133,9 @@ def visualize_training_results(model) -> None:
 
 if __name__ == "__main__":
     # plot_dataset()
-    _model: MLP = get_mlp()
+    _model = MLP(2, [16, 16, 1])
+    print(len(_model.parameters))
+    print(_model._layers[0]._neurons[0].w)
 
-    train(_model, *get_dataset_processed(), epochs=100)
-    visualize_training_results(_model)
+    # train(_model, *get_dataset_processed(), epochs=100)
+    # visualize_training_results(_model)
