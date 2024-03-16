@@ -6,12 +6,10 @@ import random
 from abc import ABC, abstractmethod
 from typing import Iterator
 
+import micrograd.nn
 import numpy as np
 
 from .nanotensor import NanoTensor
-from .slowtorch_constants import RNG_SEED
-
-random.seed(RNG_SEED)
 
 
 class Module(ABC):
@@ -33,13 +31,12 @@ class Module(ABC):
 
 
 class Neuron(Module):
-    def __init__(self, n_args: int = 2, seed=RNG_SEED):
-        _rng = np.random.default_rng(seed)
-        # self.w: list[NanoTensor] = [
-        # NanoTensor(float(x)) for x in _rng.uniform(-1.0, 1.0, n_args)
-        # ]
-        self.w = [NanoTensor(random.uniform(-1, 1)) for _ in range(n_args)]
+    def __init__(self, n_args: int = 2, nonlin=True):
+        self.w: list[NanoTensor] = [
+            NanoTensor(random.uniform(-1, 1)) for _ in range(n_args)
+        ]
         self.b = NanoTensor(0)
+        self.nonlin = nonlin
 
     def __repr__(self):
         return f"Neuron({self.w}, {self.b})"
@@ -50,15 +47,38 @@ class Neuron(Module):
 
     def forward(self, x: NanoTensor) -> NanoTensor:
         assert len(self.w) == len(x)
-        return sum((w * x for w, x in zip(self.w, x)), self.b).relu()
+        _forward: NanoTensor = sum((wi * xi for wi, xi in zip(self.w, x)), self.b)
+        return _forward.relu() if self.nonlin else _forward
+
+    def __eq__(self, other):
+        if isinstance(other, micrograd.nn.Neuron):
+            return (
+                self.w == other.w and self.b == other.b and self.nonlin == other.nonlin
+            )
+
+        return NotImplemented
 
 
 class Layer(Module):
-    def __init__(self, n_in: int, n_out: int):
-        self._neurons: list[Neuron] = [Neuron(n_in) for _ in range(n_out)]
+    def __init__(self, n_in: int, n_out: int, **kwargs):
+        self._neurons: list[Neuron] = [Neuron(n_in, **kwargs) for _ in range(n_out)]
 
     def __iter__(self) -> Iterator[Neuron]:
         return iter(self._neurons)
+
+    def __repr__(self):
+        return f"Layer of [{', '.join(str(n) for n in self.neurons)}]"
+
+    def __getitem__(self, idx: int) -> Neuron:
+        return self._neurons[idx]
+
+    def __eq__(self, other):
+        # Iterators are equal if all(zip(__eq__)) is true, i.e. for lists it
+        # does the n.__eq__(np) for all the elements in the corresponding lists
+        if isinstance(other, micrograd.nn.Layer):
+            return self._neurons == other.neurons
+
+        return NotImplemented
 
     def forward(self, x: NanoTensor) -> NanoTensor | list[NanoTensor]:
         retval: list[NanoTensor] = [n(x) for n in self]
@@ -72,12 +92,25 @@ class Layer(Module):
 class MLP(Module):
     def __init__(self, nin: int, nouts: list[int]):
         sz: list[int] = [nin] + nouts
-        self._layers: list[Layer] = [Layer(sz[i], sz[i + 1]) for i in range(len(nouts))]
+        self._layers: list[Layer] = [
+            Layer(sz[i], sz[i + 1], nonlin=i != len(nouts) - 1)
+            for i in range(len(nouts))
+        ]
+
+    def __getitem__(self, idx: int) -> Layer:
+        return self._layers[idx]
 
     def __iter__(self) -> Iterator[Layer]:
         return iter(self._layers)
 
+    def __eq__(self, other):
+        if isinstance(other, micrograd.nn.MLP):
+            return self._layers == other.layers
+
+        return NotImplemented
+
     def forward(self, x: NanoTensor) -> NanoTensor | list[NanoTensor]:
+        """Returns a NanoTensor if the model has a single output, else a list of NanoTensors."""
         for layer in self._layers:
             x: NanoTensor | list[NanoTensor] = layer(x)
         return x
