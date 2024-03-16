@@ -77,12 +77,12 @@ def loss(
     scores = list(map(model, Xb))
 
     losses: list[NanoTensor] = [
-        (1 + -yi * scorei).relu() for yi, scorei in zip(yb, scores)
+        (1 - yi * scorei).relu() for yi, scorei in zip(yb, scores)
     ]
     data_loss: NanoTensor = sum(losses) * (1.0 / len(losses))
 
     # L2 regularization
-    reg_loss: NanoTensor = SETTINGS.L2ALPHA * sum((p * p for p in model.parameters))
+    reg_loss: NanoTensor = SETTINGS.L2ALPHA * sum((p**2 for p in model.parameters))
     total_loss: NanoTensor = data_loss + reg_loss
 
     accuracy: list[bool] = [
@@ -94,6 +94,7 @@ def loss(
 def training_iteration(model: MLP, X, y, learning_rate: float, batch_size=None) -> None:
     # Foward
     total_loss, acc = loss(model, X, y, batch_size)
+    print(total_loss.value, acc)
 
     # Backward
     model.zero_grad()
@@ -104,14 +105,39 @@ def training_iteration(model: MLP, X, y, learning_rate: float, batch_size=None) 
         p.value -= learning_rate * p.grad
 
 
-def training(model, X, y, epochs: int, batch_size=None):
+def train(model, X, y, epochs: int, batch_size=None):
     for epoch in range(epochs):
+        print(f"Training epoch {epoch + 1}/{epochs}")
         learning_rate: float = 1.0 - 0.9 * epoch / 100
         training_iteration(model, X, y, learning_rate, batch_size)
+
+
+def visualize_training_results(model) -> None:
+    # visualize decision boundary
+    h = 0.25
+
+    X, y = get_dataset()
+
+    x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
+    y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+    Xmesh = np.c_[xx.ravel(), yy.ravel()]
+    inputs = [list(map(NanoTensor, xrow)) for xrow in Xmesh]
+    scores = list(map(model, inputs))
+    Z = np.array([s.value > 0 for s in scores])
+    Z = Z.reshape(xx.shape)
+
+    fig = plt.figure()
+    plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral, alpha=0.8)
+    plt.scatter(X[:, 0], X[:, 1], c=y, s=40, cmap=plt.cm.Spectral)
+    plt.xlim(xx.min(), xx.max())
+    plt.ylim(yy.min(), yy.max())
+    plt.show()
 
 
 if __name__ == "__main__":
     # plot_dataset()
     _model: MLP = get_mlp()
 
-    training(_model, *get_dataset_processed(), epochs=100)
+    train(_model, *get_dataset_processed(), epochs=100)
+    visualize_training_results(_model)
