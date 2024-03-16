@@ -1,6 +1,4 @@
 # nanograd
-Visualization of the computation graph, preserving the topological ordering used for the computation.
-
 ## SlowTorch 
 * Neurons, Layers, MLP support, automatic instantiation with random intial weights
 * Simple visualizations for the results and the loss are availiable
