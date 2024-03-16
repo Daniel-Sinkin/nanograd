@@ -88,6 +88,16 @@ class NanoTensor:
     def __rmul__(self, other) -> "NanoTensor":
         return self.__mul__(other)
 
+    def __neg__(self) -> "NanoTensor":
+        result_tensor = NanoTensor(-self.value, children=(self,), operator=Operator.NEG)
+
+        # d/dx -x = -1
+        def _backward() -> None:
+            self.grad -= 1.0 * result_tensor.grad
+
+        result_tensor._backward = _backward
+        return result_tensor
+
     def sin(self) -> "NanoTensor":
         result_tensor = NanoTensor(
             float(np.sin(self.value)), children=(self,), operator=Operator.SIN

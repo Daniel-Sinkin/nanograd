@@ -8,6 +8,7 @@ class Operator(Enum):
     ADD = "+"
     SUB = "-"
     MUL = "*"
+    NEG = "neg"
     SIN = "sin"
     COS = "cos"
     EXP = "exp"
