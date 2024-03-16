@@ -1,11 +1,16 @@
+import os
+import random
+
 import matplotlib.pyplot as plt
 
 from src.nanotensor import NanoTensor
 from src.slowtorch import MLP, Layer, Neuron
 
 
-def main():
-    n = MLP(3, [4, 4, 1])
+def main(show_plot=True, filepath: str = None):
+    random.seed(0x2024_03_16)
+
+    model = MLP(3, [4, 4, 1])
     xs: list[list[float]] = [
         [2.0, 3.0, -1.0],
         [3.0, -1.0, 0.5],
@@ -14,39 +19,22 @@ def main():
     ]
     ys: list[float] = [1.0, -1.0, -1.0, 1.0]
 
-    weights_and_biases_flattened = []
-    for layer in n._layers:
-        for neuron in layer._neurons:
-            for wi in neuron.w:
-                weights_and_biases_flattened.append(wi)
-            weights_and_biases_flattened.append(neuron.b)
-
     def loss(y: list[NanoTensor], y_hat: list[NanoTensor]) -> NanoTensor:
         return sum(((a - b) ** 2 for a, b in zip(y, y_hat)))
 
     lr = 0.01
 
-    def run_iteration():
-        map(lambda x: x.zero_grad(), weights_and_biases_flattened)
+    def run_iteration() -> tuple[list[float], float]:
+        model.zero_grad()
 
-        ypred = list(map(n, xs))
+        ypred = list(map(model, xs))
         _loss = loss(ypred, ys)
         _loss.backward()
 
-        # This is horrible, can't iterate through the flattened list because of variable
-        # shadowing. The correct solution would be to offload to get_parameter functions
-        # but this works, so I'll leave it like this for now.
-        for layer_idx in range(len(n._layers)):
-            for neuron_idx in range(len(n._layers[layer_idx]._neurons)):
-                for wi_idx in range(len(n._layers[layer_idx]._neurons[neuron_idx].w)):
-                    n._layers[layer_idx]._neurons[neuron_idx].w[wi_idx] -= (
-                        lr * n._layers[layer_idx]._neurons[neuron_idx].w[wi_idx].grad
-                    )
-                n._layers[layer_idx]._neurons[neuron_idx].b -= (
-                    lr * n._layers[layer_idx]._neurons[neuron_idx].b.grad
-                )
+        for p in model.parameters:
+            p.value -= lr * p.grad
 
-        return [_y.value for _y in ypred], _loss.value
+        return [float(_y.value) for _y in ypred], _loss.value
 
     lst = [run_iteration() for _ in range(100)]
 
@@ -69,8 +57,13 @@ def main():
     ax2.legend()
 
     plt.tight_layout()
+    if filepath:
+        plt.savefig(filepath)
     plt.show()
 
 
 if __name__ == "__main__":
-    main()
+    main(
+        show_plot=True,
+        filepath=os.path.join("images", "slowtorch_binary_classification.png"),
+    )
