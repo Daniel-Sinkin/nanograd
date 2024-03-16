@@ -85,3 +85,36 @@ class MLP(Module):
     @property
     def parameters(self) -> list[NanoTensor]:
         return [param for layer in self for param in layer.parameters]
+
+    def hinge_loss(
+        self,
+        X: list[list[NanoTensor]],
+        y: list[NanoTensor],
+        alpha=1e-4,
+        batch_size=None,
+    ) -> tuple[float, float]:
+        if batch_size is None:
+            Xb, yb = X, y
+        else:
+            raise NotImplementedError(
+                "Need to clean up the type handling before batchign implementation."
+            )
+            ri = np.random.permutation(X.shape[0])[:batch_size]
+            Xb, yb = X[ri], y[ri]
+
+        # forward the model to get scores
+        scores = list(map(self, Xb))
+
+        losses: list[NanoTensor] = [
+            (1 - yi * scorei).relu() for yi, scorei in zip(yb, scores)
+        ]
+        data_loss: NanoTensor = sum(losses) * (1.0 / len(losses))
+
+        # L2 regularization
+        reg_loss: NanoTensor = alpha * sum((p**2 for p in self.parameters))
+        total_loss: NanoTensor = data_loss + reg_loss
+
+        accuracy: list[bool] = [
+            (yi.value > 0) == (scorei.value > 0) for yi, scorei in zip(yb, scores)
+        ]
+        return total_loss, sum(accuracy) / len(accuracy)
