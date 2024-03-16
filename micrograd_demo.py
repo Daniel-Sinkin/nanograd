@@ -15,12 +15,6 @@ from src.slowtorch import MLP, Layer, Neuron
 @dataclass
 class SETTINGS:
     @dataclass
-    class MLP:
-        INPUT_DIM = 2
-        OUTPUT_DIM = 1
-        HIDDEN_DIM: list[int] = [16, 16]
-
-    @dataclass
     class PLOT:
         MARKER_SIZE = 20
         CMAP = "jet"
@@ -43,47 +37,44 @@ def get_dataset_processed() -> tuple[list[NanoTensor], list[NanoTensor]]:
     """Maps 0 -> -1, 1 -> 1."""
     X, y = get_dataset()
     y = y * 2 - 1
-    X = list(map(NanoTensor, X))
+    X = [[NanoTensor(_x[0]), NanoTensor(_x[1])] for _x in X]
     y = list(map(NanoTensor, y))
     return X, y
 
 
-def plot_dataset(X: list[NanoTensor], y: list[NanoTensor]) -> None:
-    X_plot: np.ndarray = np.array([x.data for x in X])
-    y_plot: np.ndarray = np.array([_y.data for _y in y])
+def plot_dataset() -> None:
+    X, y = get_dataset()
+    y = y * 2 - 1
 
     plt.figure(figsize=SETTINGS.PLOT.FIGSIZE)
     plt.scatter(
-        X_plot[:, 0],
-        X_plot[:, 1],
-        c=y_plot,
+        X[:, 0],
+        X[:, 1],
+        c=y,
         s=SETTINGS.PLOT.MARKER_SIZE,
         cmap=SETTINGS.PLOT.CMAP,
     )
     plt.show()
 
 
-def get_and_plot_dataset() -> None:
-    plot_dataset(*get_dataset_processed())
-
-
 def get_mlp() -> MLP:
-    return MLP(SETTINGS.INPUT_DIM, SETTINGS.HIDDEN_DIM + [SETTINGS.OUTPUT_DIM])
+    return MLP(2, [16, 16, 1])
 
 
 def loss(
-    model: MLP, X: list[NanoTensor], y: list[NanoTensor], batch_size=None
+    model: MLP, X: list[list[NanoTensor]], y: list[NanoTensor], batch_size=None
 ) -> tuple[float, float]:
     if batch_size is None:
         Xb, yb = X, y
     else:
+        raise NotImplementedError(
+            "Need to clean up the type handling before batchign implementation."
+        )
         ri = np.random.permutation(X.shape[0])[:batch_size]
         Xb, yb = X[ri], y[ri]
-    inputs: list[list[NanoTensor]] = [list(map(NanoTensor, xrow)) for xrow in Xb]
-    yb = list(map(NanoTensor, yb))
 
     # forward the model to get scores
-    scores = list(map(model, inputs))
+    scores = list(map(model, Xb))
 
     losses: list[NanoTensor] = [
         (1 + -yi * scorei).relu() for yi, scorei in zip(yb, scores)
@@ -91,11 +82,11 @@ def loss(
     data_loss: NanoTensor = sum(losses) * (1.0 / len(losses))
 
     # L2 regularization
-    reg_loss: NanoTensor = SETTINGS.L2ALPHA * sum((p * p for p in model.parameters()))
+    reg_loss: NanoTensor = SETTINGS.L2ALPHA * sum((p * p for p in model.parameters))
     total_loss: NanoTensor = data_loss + reg_loss
 
     accuracy: list[bool] = [
-        (yi > 0) == (scorei.data > 0) for yi, scorei in zip(yb, scores)
+        (yi.value > 0) == (scorei.value > 0) for yi, scorei in zip(yb, scores)
     ]
     return total_loss, sum(accuracy) / len(accuracy)
 
@@ -109,8 +100,8 @@ def training_iteration(model: MLP, X, y, learning_rate: float, batch_size=None) 
     total_loss.backward()
 
     # Update via SGD
-    for p in model.parameters():
-        p.data -= learning_rate * p.grad
+    for p in model.parameters:
+        p.value -= learning_rate * p.grad
 
 
 def training(model, X, y, epochs: int, batch_size=None):
@@ -120,7 +111,7 @@ def training(model, X, y, epochs: int, batch_size=None):
 
 
 if __name__ == "__main__":
-    get_and_plot_dataset()
+    # plot_dataset()
     _model: MLP = get_mlp()
 
     training(_model, *get_dataset_processed(), epochs=100)
